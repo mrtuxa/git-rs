@@ -28,6 +28,25 @@ fn main() {
             let content = store.splitn(2, '\0').collect::<Vec<&str>>()[1];
             print!("{}", content);
         },
+        "hash-object" => {
+            let filename = args[3].as_str();
+            let content = fs::read_to_string(filename).unwrap();
+            let object = format!("blob {}\0{}", content.len(), content);
+            let mut hasher = Sha1::new();
+            hasher.update(object.as_bytes());
+            let sha1 = format!("{:x}", hasher.finalize());
+
+            let mut encoder =
+                ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(object.as_bytes()).unwrap();
+            let compress = encoder.finish().unwrap();
+
+            let subdir = &sha1[0..2];
+            let filename = &sha1[2..];
+            fs::create_dir(format!(".git/objects/{}", subdir)).unwrap();
+            fs::write(format!(".git/objects/{}/{}", subdir, filename), compress).unwrap();
+            println!("{}", sha1);
+        },
         _ => {
             println!("Unknown command");
         }
